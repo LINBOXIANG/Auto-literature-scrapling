@@ -1,4 +1,4 @@
 interface:
   display_name: "OBHRM Literature Monitor"
-  short_description: "Monitor OBHRM top-journal articles and prepare daily reports."
-  default_prompt: "Find new OBHRM top-journal articles for my active keywords and prepare the daily report."
+  short_description: "Monitor OBHRM/HCI/preprint sources and publish weekly reports."
+  default_prompt: "Generate an OBHRM literature report for my keywords and Tokyo-time window, then publish the HTML report and short Lark summary."

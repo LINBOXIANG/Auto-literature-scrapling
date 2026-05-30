@@ -12,6 +12,7 @@ description: Monitor OBHRM/HCI/preprint target-source articles, build and review
 - Pause for user review after generating `data/whitelist/journals_review.md`; do not run production scans against a new whitelist until the user confirms it.
 - Use Asia/Tokyo for all windows. The weekly production window is previous Monday 00:00 inclusive to current Monday 00:00 exclusive.
 - Keep keywords easy to replace through `config/monitor.yaml` or command-line arguments.
+- For team self-service runs, prefer the GitHub Actions manual workflow over asking every teacher/student to install Codex locally.
 
 ## Compliance Boundary
 
@@ -126,3 +127,22 @@ python skills/obhrm-literature-monitor/scripts/publish_report_site.py --input ou
 
 The generated public path is `site/reports/<run-folder>/`. Netlify should publish the repository's `site` directory.
 The public site copy removes email addresses found in article metadata while leaving local Markdown/CSV/HTML outputs unchanged.
+
+## GitHub Web UI Workflow
+
+Use `.github/workflows/generate-literature-report.yml` when a collaborator needs to generate a report without local Codex or Python setup. The workflow exposes a GitHub `Run workflow` form with:
+
+- `keywords`: semicolon-separated concepts.
+- `start_jst`: Tokyo-time inclusive start, such as `2026-05-18T00:00`.
+- `end_jst`: Tokyo-time exclusive end, such as `2026-05-25T00:00`.
+- `match_mode`: currently `any`.
+- optional output label and scan strategy controls.
+
+The workflow runs `scripts/run_github_report.py`, which scans, renders standalone HTML, publishes the public copy under `site/reports/<run-folder>/`, uploads Markdown/HTML/CSV/log artifacts to the workflow run, and commits `site/` so Netlify can redeploy.
+
+Repository secrets for Lark push:
+
+- `OBHRM_LARK_WEBHOOK_URL`
+- optional `OBHRM_LARK_WEBHOOK_SECRET`
+
+If the Lark webhook secret is missing, report generation and Netlify publishing still proceed; the workflow logs that Lark push was skipped.

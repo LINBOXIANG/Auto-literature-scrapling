@@ -1,0 +1,154 @@
+name: Generate OBHRM Literature Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      keywords:
+        description: "Semicolon-separated concepts, for example: AI; LLM; Large Language Model"
+        required: true
+        default: "AI; LLM; Large Language Model"
+        type: string
+      start_jst:
+        description: "Tokyo-time inclusive start, for example: 2026-05-18T00:00"
+        required: true
+        type: string
+      end_jst:
+        description: "Tokyo-time exclusive end, for example: 2026-05-25T00:00"
+        required: true
+        type: string
+      match_mode:
+        description: "Keyword matching mode"
+        required: true
+        default: "any"
+        type: choice
+        options:
+          - any
+      output_label:
+        description: "Optional URL/output label. Leave blank to auto-generate."
+        required: false
+        type: string
+      strategy:
+        description: "Discovery strategy"
+        required: true
+        default: "openalex-keyword"
+        type: choice
+        options:
+          - openalex-keyword
+          - crossref-journal
+      per_keyword:
+        description: "OpenAlex rows per keyword page"
+        required: true
+        default: "200"
+        type: string
+      max_pages:
+        description: "OpenAlex pages per concept"
+        required: true
+        default: "10"
+        type: string
+      public_site_url:
+        description: "Public Netlify site URL"
+        required: true
+        default: "https://obhrm-literature-monitor.netlify.app"
+        type: string
+      push_lark:
+        description: "Send the short summary to Lark if webhook secrets are configured"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: obhrm-literature-report
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Generate, publish, and optionally push
+        id: generate
+        env:
+          OBHRM_LARK_WEBHOOK_URL: ${{ secrets.OBHRM_LARK_WEBHOOK_URL }}
+          OBHRM_LARK_WEBHOOK_SECRET: ${{ secrets.OBHRM_LARK_WEBHOOK_SECRET }}
+          RUN_KEYWORDS: ${{ inputs.keywords }}
+          RUN_START_JST: ${{ inputs.start_jst }}
+          RUN_END_JST: ${{ inputs.end_jst }}
+          RUN_MATCH_MODE: ${{ inputs.match_mode }}
+          RUN_OUTPUT_LABEL: ${{ inputs.output_label }}
+          RUN_STRATEGY: ${{ inputs.strategy }}
+          RUN_PER_KEYWORD: ${{ inputs.per_keyword }}
+          RUN_MAX_PAGES: ${{ inputs.max_pages }}
+          RUN_PUBLIC_SITE_URL: ${{ inputs.public_site_url }}
+        run: |
+          ARGS=(
+            --keywords "$RUN_KEYWORDS"
+            --start "$RUN_START_JST"
+            --end "$RUN_END_JST"
+            --match-mode "$RUN_MATCH_MODE"
+            --strategy "$RUN_STRATEGY"
+            --per-keyword "$RUN_PER_KEYWORD"
+            --max-pages "$RUN_MAX_PAGES"
+            --public-site-url "$RUN_PUBLIC_SITE_URL"
+          )
+          if [ -n "$RUN_OUTPUT_LABEL" ]; then
+            ARGS+=(--output-label "$RUN_OUTPUT_LABEL")
+          fi
+          python skills/obhrm-literature-monitor/scripts/run_github_report.py "${ARGS[@]}"
+
+      - name: Upload generated report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: obhrm-report-${{ steps.generate.outputs.report_dir }}
+          path: |
+            outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_report.md
+            outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_report.html
+            outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_records.csv
+            logs/${{ steps.generate.outputs.report_dir }}/run.log
+
+      - name: Commit published site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site
+          if git diff --cached --quiet; then
+            echo "No site changes to commit."
+          else
+            git commit -m "Publish literature report ${{ steps.generate.outputs.report_dir }}"
+            git push
+          fi
+
+      - name: Push short Lark summary
+        if: ${{ inputs.push_lark }}
+        env:
+          OBHRM_LARK_WEBHOOK_URL: ${{ secrets.OBHRM_LARK_WEBHOOK_URL }}
+          OBHRM_LARK_WEBHOOK_SECRET: ${{ secrets.OBHRM_LARK_WEBHOOK_SECRET }}
+          RUN_KEYWORDS: ${{ inputs.keywords }}
+          RUN_START_JST: ${{ inputs.start_jst }}
+          RUN_END_JST: ${{ inputs.end_jst }}
+        run: |
+          if [ -z "$OBHRM_LARK_WEBHOOK_URL" ]; then
+            echo "Lark push skipped: OBHRM_LARK_WEBHOOK_URL is not configured." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python skills/obhrm-literature-monitor/scripts/push_lark_report_summary.py \
+            --csv "outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_records.csv" \
+            --start "$RUN_START_JST" \
+            --end "$RUN_END_JST" \
+            --concepts "$RUN_KEYWORDS" \
+            --public-report-url "${{ steps.generate.outputs.public_report_url }}" \
+            --public-index-url "${{ steps.generate.outputs.public_index_url }}"
+          echo "Lark summary sent." >> "$GITHUB_STEP_SUMMARY"

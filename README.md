@@ -99,6 +99,33 @@ site/reports/<run-folder>/
 
 The public site copy removes email addresses found in article metadata. Local Markdown/CSV/HTML outputs remain unchanged.
 
+## Run From GitHub Web Page
+
+Collaborators do not need Codex, Python, or this repository on their own computers if they use the GitHub Actions workflow.
+They do need GitHub access to this repository with permission to run Actions.
+
+1. Open the GitHub repository.
+2. Click `Actions`.
+3. Choose `Generate OBHRM Literature Report`.
+4. Click `Run workflow`.
+5. Fill in:
+   - `keywords`: semicolon-separated concepts, such as `AI; LLM; Large Language Model`.
+   - `start_jst`: Tokyo-time inclusive start, such as `2026-05-18T00:00`.
+   - `end_jst`: Tokyo-time exclusive end, such as `2026-05-25T00:00`.
+   - `match_mode`: keep `any`.
+6. Start the workflow and wait for it to finish.
+
+The workflow runs on GitHub-hosted servers. It generates Markdown, CSV, and HTML artifacts, publishes the public HTML copy into `site/reports/<run-folder>/`, commits the updated `site/` directory, and lets Netlify redeploy the public report page.
+
+If Lark secrets are configured, the workflow also sends the short Lark summary. Add these repository secrets under GitHub `Settings` -> `Secrets and variables` -> `Actions`:
+
+```text
+OBHRM_LARK_WEBHOOK_URL
+OBHRM_LARK_WEBHOOK_SECRET
+```
+
+The Lark summary includes only concepts, Tokyo-time window, journal/platform counts, and public report links.
+
 ## Netlify Hosting
 
 This repository includes `netlify.toml`. In Netlify, connect this GitHub repository and use:

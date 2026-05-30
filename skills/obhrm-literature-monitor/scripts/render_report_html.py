@@ -394,6 +394,9 @@ def render_fields(fields: list[tuple[str, str]]) -> str:
             rows = []
 
     for name, value in fields:
+        if name == "Authors":
+            continue
+        display_name = "Author & affiliation" if name == "Affiliations" else name
         if name == "Abstract status":
             status = value.strip().lower()
             badge_class = "missing" if status == "missing" else "available"
@@ -402,7 +405,7 @@ def render_fields(fields: list[tuple[str, str]]) -> str:
             flush_rows()
             chunks.append(
                 '<div class="abstract-block">'
-                f'<span class="abstract-label">{html.escape(name)}</span>'
+                f'<span class="abstract-label">{html.escape(display_name)}</span>'
                 f'<p class="abstract-text" lang="en">{inline_markdown(value)}</p>'
                 "</div>"
             )
@@ -413,7 +416,7 @@ def render_fields(fields: list[tuple[str, str]]) -> str:
             value_html = inline_markdown(value)
         rows.append(
             "<tr>"
-            f'<td class="field-name">{html.escape(name)}</td>'
+            f'<td class="field-name">{html.escape(display_name)}</td>'
             f'<td class="field-value">{value_html}</td>'
             "</tr>"
         )

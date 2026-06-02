@@ -173,7 +173,7 @@ jobs:
             --match-mode "$RUN_MATCH_MODE"
             --strategy "openalex-source"
             --per-keyword "200"
-            --max-pages "10"
+            --max-pages "0"
             --public-site-url "$PUBLIC_SITE_URL"
           )
           SELECTED_JOURNAL_LISTS=()

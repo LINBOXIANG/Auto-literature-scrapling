@@ -54,7 +54,7 @@ python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --keyword "work
 
 The default scan strategy is `openalex-source`: resolve each whitelist source to its OpenAlex source id, then query each source/concept/window combination and write a source-by-source traversal trace. Use this for production and any research-sensitive search.
 Use `--strategy openalex-keyword` only as a fast exploratory shortcut: it searches OpenAlex globally by keyword/date first and then filters to the whitelist, so it can miss many whitelist articles in broad keywords or long windows. Use `--strategy crossref-journal` only as a fallback when OpenAlex source metadata appears incomplete.
-Keep `--max-pages` high enough for long or broad searches. The trace file flags source/concept rows as incomplete when OpenAlex reports more results than were fetched.
+Production GitHub runs use OpenAlex cursor pagination exhaustively. `--max-pages` is an optional local/debug safety cap; keep it at `0` for comprehensive source-first scans. The trace file flags source/concept rows as incomplete if a manual cap or API interruption prevents full retrieval.
 
 For weekly production-style scans, use the previous-week window:
 

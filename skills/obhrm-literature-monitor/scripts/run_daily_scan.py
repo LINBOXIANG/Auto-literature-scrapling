@@ -851,8 +851,13 @@ def query_openalex_keyword(
         params["mailto"] = mailto
 
     results: list[dict[str, Any]] = []
-    for page in range(1, max_pages + 1):
-        params["page"] = str(page)
+    page = 0
+    params["cursor"] = "*"
+    while True:
+        page += 1
+        if max_pages and page > max_pages:
+            log.append(f"WARN OpenAlex concept={concept!r} stopped at --max-pages={max_pages}")
+            break
         try:
             data = http_json(f"{OPENALEX_API}/works", params)
         except Exception as exc:  # noqa: BLE001
@@ -861,8 +866,10 @@ def query_openalex_keyword(
         page_results = data.get("results", []) or []
         log.append(f"OpenAlex concept={concept!r} page={page}: {len(page_results)} items")
         results.extend(page_results)
-        if len(page_results) < per_page:
+        next_cursor = (data.get("meta") or {}).get("next_cursor")
+        if not page_results or not next_cursor:
             break
+        params["cursor"] = next_cursor
         time.sleep(0.2)
     return results
 
@@ -904,7 +911,13 @@ def query_openalex_source_keyword(
     pages_fetched = 0
     status = "complete"
     last_url = request_url(f"{OPENALEX_API}/works", params)
-    for page in range(1, max_pages + 1):
+    page = 0
+    stopped_by_page_cap = False
+    while True:
+        page += 1
+        if max_pages and page > max_pages:
+            stopped_by_page_cap = True
+            break
         last_url = request_url(f"{OPENALEX_API}/works", params)
         try:
             data = http_json(f"{OPENALEX_API}/works", params)
@@ -933,7 +946,8 @@ def query_openalex_source_keyword(
         time.sleep(0.2)
 
     if total_count > len(results) and status == "complete":
-        status = f"incomplete: fetched {len(results)} of {total_count}; increase --max-pages"
+        reason = f"stopped at --max-pages={max_pages}" if stopped_by_page_cap else "OpenAlex cursor ended early"
+        status = f"incomplete: fetched {len(results)} of {total_count}; {reason}"
         log.append(
             f"WARN OpenAlex source-first incomplete source={journal.title!r} "
             f"concept={concept!r}: fetched {len(results)} of {total_count}"
@@ -1214,7 +1228,7 @@ def write_markdown_report(
         f"| Target sources | {journal_count} |",
         "",
         "> Publication metadata often has date-level rather than hour-level precision. "
-        "This report uses the requested Tokyo-time window and public metadata API date filters.",
+        "This report uses the requested local timezone window and public metadata API date filters.",
         "",
         "> Full-text boundary: this report provides DOI and publisher links only. "
         "Readers must manually use their own authorized university account for full-text access. "
@@ -1323,7 +1337,12 @@ def parse_args() -> argparse.Namespace:
         default="openalex-source",
     )
     parser.add_argument("--per-keyword", type=int, default=200)
-    parser.add_argument("--max-pages", type=int, default=10)
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=0,
+        help="Optional OpenAlex page cap per query. 0 means exhaustive cursor paging.",
+    )
     parser.add_argument("--push-lark", action="store_true")
     parser.add_argument("--public-report-url", help="Public URL for the full hosted HTML report.")
     parser.add_argument("--public-index-url", help="Public URL for the hosted report index page.")

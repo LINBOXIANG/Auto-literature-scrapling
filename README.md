@@ -92,7 +92,7 @@ utd24               UTD24 sources within the whitelist
 Example:
 
 ```powershell
-python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --timezone Asia/Tokyo --start 2000-01-01T00:00 --end 2026-06-01T00:00 --keyword Asia --keyword Asian --match-mode any
+python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --timezone Asia/Tokyo --start "2000/01/01 00:00" --end "2026/06/01 00:00" --keyword Asia --keyword Asian --match-mode any
 ```
 
 ```powershell
@@ -123,6 +123,8 @@ The public site copy removes email addresses found in article metadata. Local Ma
 
 Collaborators do not need Codex, Python, or this repository on their own computers if they use the GitHub Actions workflow.
 
+For a step-by-step beginner guide, see `docs/OBHRM_Literature_Monitor_GitHub_Actions_User_Guide.md`.
+
 Important permission rule: most users cannot click `Run workflow` inside another person's repository unless they have sufficient write/collaborator access. For ordinary teacher/student self-service use, fork this repository first and run Actions inside the fork. The workflow publishes that fork's reports to that fork's GitHub Pages site.
 
 1. Fork this GitHub repository into your own GitHub account.
@@ -141,7 +143,7 @@ Important permission rule: most users cannot click `Run workflow` inside another
 
 The workflow runs on GitHub-hosted servers. It generates Markdown, CSV, and HTML artifacts, publishes the public HTML copy into `site/reports/<run-folder>/`, commits the updated `site/` directory, and deploys the `site/` directory to GitHub Pages.
 It also uploads `obhrm_scan_trace.csv`, which shows source-by-source traversal details: journal/platform name, OpenAlex source id, concept, API total count, fetched count, pages fetched, status, and query URL.
-Technical OpenAlex controls are intentionally hidden from the normal `Run workflow` form; production web runs use the source-first OpenAlex strategy with the repository defaults.
+Technical OpenAlex controls are intentionally hidden from the normal `Run workflow` form; production web runs use the source-first OpenAlex strategy with exhaustive cursor paging by default.
 
 When `public_site_url` is blank, report links are generated from the running repository's GitHub Pages URL:
 

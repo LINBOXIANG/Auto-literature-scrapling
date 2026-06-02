@@ -80,7 +80,12 @@ def parse_args() -> argparse.Namespace:
         default="openalex-source",
     )
     parser.add_argument("--per-keyword", type=int, default=200)
-    parser.add_argument("--max-pages", type=int, default=10)
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=0,
+        help="Optional OpenAlex page cap per query. 0 means exhaustive cursor paging.",
+    )
     parser.add_argument("--public-site-url", default="")
     parser.add_argument("--push-lark", action="store_true")
     parser.add_argument(

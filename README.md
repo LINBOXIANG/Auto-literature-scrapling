@@ -85,7 +85,7 @@ Choose a narrower source list when broad keywords would produce too many article
 all-198             all approved OBHRM/HCI/preprint whitelist sources
 abs-4-and-4-star    ABS/AJG 2024 4 and 4* sources within the whitelist
 abs-4-star          ABS/AJG 2024 4* sources within the whitelist
-ft50                FT50 sources within the whitelist
+ft50                FT50 sources within the whitelist, excluding Operations Research
 utd24               UTD24 sources within the whitelist
 ```
 

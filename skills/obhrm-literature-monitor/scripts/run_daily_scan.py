@@ -47,8 +47,9 @@ JOURNAL_LISTS: dict[str, dict[str, Any]] = {
         "tokens": {"AJG2024_4*"},
     },
     "ft50": {
-        "label": "FT50 sources within the 198 whitelist",
+        "label": "FT50 sources within the 198 whitelist, excluding Operations Research",
         "tokens": {"FT50"},
+        "exclude_titles": {"operations research"},
     },
     "utd24": {
         "label": "UTD24 sources within the 198 whitelist",
@@ -238,12 +239,19 @@ def journal_matches_list(source_lists: str, journal_list: str) -> bool:
     return bool(source_tokens & tokens)
 
 
+def journal_is_excluded(title: str, journal_list: str) -> bool:
+    excluded_titles = JOURNAL_LISTS[journal_list].get("exclude_titles", set())
+    return normalize_title(title) in excluded_titles
+
+
 def load_journals(path: Path, journal_list: str = "all-198") -> list[Journal]:
     journals: list[Journal] = []
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             if row.get("obhrm_candidate") != "True":
+                continue
+            if journal_is_excluded(row.get("journal_title", ""), journal_list):
                 continue
             if not journal_matches_list(row.get("source_lists", ""), journal_list):
                 continue

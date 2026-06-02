@@ -73,7 +73,7 @@ Use `--journal-list` to reduce scope for broad concepts. Available lists:
 - `all-198`: all approved OBHRM/HCI/preprint whitelist sources.
 - `abs-4-and-4-star`: ABS/AJG 2024 4 and 4* sources within the whitelist.
 - `abs-4-star`: ABS/AJG 2024 4* sources within the whitelist.
-- `ft50`: FT50 sources within the whitelist.
+- `ft50`: FT50 sources within the whitelist, excluding Operations Research.
 - `utd24`: UTD24 sources within the whitelist.
 
 When a hosted HTML report exists and the scan has already been run, push only the short Lark summary without re-scanning:

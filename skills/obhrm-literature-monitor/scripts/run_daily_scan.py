@@ -208,10 +208,30 @@ def parse_keywords(
 
 
 def parse_local_datetime(value: str, timezone: str) -> datetime:
-    if "T" not in value and " " not in value:
-        value = f"{value}T00:00"
-    normalized = value.replace(" ", "T")
-    return datetime.fromisoformat(normalized).replace(tzinfo=ZoneInfo(timezone))
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ValueError("Datetime value cannot be blank.")
+    normalized = normalized.replace("／", "/").replace("：", ":")
+    match = re.fullmatch(
+        r"(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T/]+(\d{1,2})(?::(\d{1,2}))?)?",
+        normalized,
+    )
+    if match:
+        year, month, day, hour, minute = match.groups()
+        year_value = int(year)
+        if year_value < 100:
+            year_value += 2000
+        return datetime(
+            year_value,
+            int(month),
+            int(day),
+            int(hour or 0),
+            int(minute or 0),
+            tzinfo=ZoneInfo(timezone),
+        )
+    if "T" not in normalized and " " not in normalized:
+        normalized = f"{normalized}T00:00"
+    return datetime.fromisoformat(normalized.replace(" ", "T")).replace(tzinfo=ZoneInfo(timezone))
 
 
 def validate_window(start: datetime, end: datetime) -> None:

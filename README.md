@@ -65,7 +65,7 @@ Copy and edit the example monitor config if needed:
 Copy-Item config/monitor.example.yaml config/monitor.yaml
 ```
 
-Run the previous full Tokyo-time week:
+Run the previous full week in the configured timezone:
 
 ```powershell
 python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --previous-week
@@ -76,7 +76,7 @@ The default production scan uses the `openalex-source` strategy. It resolves eac
 Run a specific window with separate keyword concepts:
 
 ```powershell
-python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --timezone Asia/Tokyo --start 2026-05-18T00:00 --end 2026-05-25T00:00 --keyword AI --keyword LLM --keyword "Large Language Model" --match-mode any
+python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --timezone Asia/Tokyo --start "2026/05/18 00:00" --end "2026/05/25 00:00" --keyword Presenteeism --match-mode any
 ```
 
 Choose one or more source lists when broad keywords would produce too many articles. Repeating `--journal-list` scans the union of those lists:
@@ -96,7 +96,7 @@ python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list 
 ```
 
 ```powershell
-python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --journal-list ft50 --timezone Asia/Tokyo --start 2026-05-18T00:00 --end 2026-05-25T00:00 --keyword AI
+python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --journal-list ft50 --timezone Asia/Tokyo --start "2026/05/18 00:00" --end "2026/05/25 00:00" --keyword Presenteeism
 ```
 
 Render the Markdown report as standalone HTML:
@@ -132,8 +132,8 @@ Important permission rule: most users cannot click `Run workflow` inside another
 5. Fill in:
    - `keyword_1` to `keyword_5`: enter up to five concepts, one per field. Leave unused fields blank.
    - `timezone`: choose `Asia/Tokyo`, `America/Chicago`, or `Asia/Shanghai`.
-   - `start_time`: inclusive start in the selected timezone, such as `2026-05-18T00:00`.
-   - `end_time`: exclusive end in the selected timezone, such as `2026-05-25T00:00`. The workflow will fail clearly if the end is not later than the start.
+   - `start_date` and `start_clock`: inclusive start date and time, such as `2026/05/18` and `00:00`.
+   - `end_date` and `end_clock`: exclusive end date and time, such as `2026/05/25` and `00:00`. The workflow will fail clearly if the end is not later than the start.
    - `match_mode`: choose `any` for OR logic, or `all` for AND logic.
    - Journal list checkboxes: select one or more of `all-whitelist`, `abs-4-and-4-star`, `abs-4-star`, `ft50`, and `utd24`. The workflow scans the union of all selected lists. `abs-4-star` is selected by default as the most selective option.
    - `public_site_url`: leave blank unless you maintain a custom Netlify or GitHub Pages domain.
@@ -159,7 +159,7 @@ OBHRM_LARK_WEBHOOK_URL
 OBHRM_LARK_WEBHOOK_SECRET
 ```
 
-The Lark summary includes only concepts, Tokyo-time window, journal/platform counts, and public report links.
+The Lark summary includes only concepts, the selected timezone window, journal/platform counts, and public report links.
 
 ## Optional Netlify Hosting
 
@@ -195,7 +195,7 @@ python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --previous-week
 Send the short summary for an already generated CSV and hosted report:
 
 ```powershell
-python skills/obhrm-literature-monitor/scripts/push_lark_report_summary.py --csv outputs/<run-folder>/obhrm_daily_records.csv --start 2026-05-18T00:00 --end 2026-05-25T00:00 --concepts "AI; LLM; Large Language Model" --public-report-url https://example.netlify.app/reports/<run-folder>/ --public-index-url https://example.netlify.app/
+python skills/obhrm-literature-monitor/scripts/push_lark_report_summary.py --csv outputs/<run-folder>/obhrm_daily_records.csv --start "2026/05/18 00:00" --end "2026/05/25 00:00" --concepts "Presenteeism" --public-report-url https://example.netlify.app/reports/<run-folder>/ --public-index-url https://example.netlify.app/
 ```
 
-The Lark message is intentionally brief. It includes concepts, the Tokyo-time window, and matched article counts by journal/platform. It does not include article titles, DOI lists, local file paths, or the full report text.
+The Lark message is intentionally brief. It includes concepts, the selected timezone window, and matched article counts by journal/platform. It does not include article titles, DOI lists, local file paths, or the full report text.

@@ -6,17 +6,17 @@ on:
       keyword_1:
         description: "Keyword/concept 1, for example: Organizational Behavior"
         required: true
-        default: "AI"
+        default: ""
         type: string
       keyword_2:
         description: "Keyword/concept 2. Leave blank if unused."
         required: false
-        default: "LLM"
+        default: ""
         type: string
       keyword_3:
         description: "Keyword/concept 3. Leave blank if unused."
         required: false
-        default: "Large Language Model"
+        default: ""
         type: string
       keyword_4:
         description: "Keyword/concept 4. Leave blank if unused."
@@ -37,13 +37,23 @@ on:
           - Asia/Tokyo
           - America/Chicago
           - Asia/Shanghai
-      start_time:
-        description: "Inclusive start in the selected timezone, for example: 2026-05-18T00:00"
+      start_date:
+        description: "Inclusive start date, for example: 2026/05/18 or 26/05/18"
         required: true
         type: string
-      end_time:
-        description: "Exclusive end in the selected timezone, for example: 2026-05-25T00:00"
+      start_clock:
+        description: "Inclusive start time, for example: 00:00 or 8:00"
         required: true
+        default: "00:00"
+        type: string
+      end_date:
+        description: "Exclusive end date, for example: 2026/05/25 or 26/05/25"
+        required: true
+        type: string
+      end_clock:
+        description: "Exclusive end time, for example: 00:00 or 8:00"
+        required: true
+        default: "00:00"
         type: string
       match_mode:
         description: "Keyword matching mode: any means OR; all means AND"
@@ -134,8 +144,10 @@ jobs:
           RUN_KEYWORD_3: ${{ inputs.keyword_3 }}
           RUN_KEYWORD_4: ${{ inputs.keyword_4 }}
           RUN_KEYWORD_5: ${{ inputs.keyword_5 }}
-          RUN_START_TIME: ${{ inputs.start_time }}
-          RUN_END_TIME: ${{ inputs.end_time }}
+          RUN_START_DATE: ${{ inputs.start_date }}
+          RUN_START_CLOCK: ${{ inputs.start_clock }}
+          RUN_END_DATE: ${{ inputs.end_date }}
+          RUN_END_CLOCK: ${{ inputs.end_clock }}
           RUN_TIMEZONE: ${{ inputs.timezone }}
           RUN_MATCH_MODE: ${{ inputs.match_mode }}
           RUN_INCLUDE_ALL_WHITELIST: ${{ inputs.include_all_whitelist }}
@@ -152,9 +164,11 @@ jobs:
             REPO_NAME="${GITHUB_REPOSITORY#*/}"
             PUBLIC_SITE_URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${REPO_NAME}"
           fi
+          START_DATETIME="$RUN_START_DATE $RUN_START_CLOCK"
+          END_DATETIME="$RUN_END_DATE $RUN_END_CLOCK"
           ARGS=(
-            --start "$RUN_START_TIME"
-            --end "$RUN_END_TIME"
+            --start "$START_DATETIME"
+            --end "$END_DATETIME"
             --timezone "$RUN_TIMEZONE"
             --match-mode "$RUN_MATCH_MODE"
             --strategy "openalex-source"
@@ -240,8 +254,10 @@ jobs:
           RUN_KEYWORD_3: ${{ inputs.keyword_3 }}
           RUN_KEYWORD_4: ${{ inputs.keyword_4 }}
           RUN_KEYWORD_5: ${{ inputs.keyword_5 }}
-          RUN_START_TIME: ${{ inputs.start_time }}
-          RUN_END_TIME: ${{ inputs.end_time }}
+          RUN_START_DATE: ${{ inputs.start_date }}
+          RUN_START_CLOCK: ${{ inputs.start_clock }}
+          RUN_END_DATE: ${{ inputs.end_date }}
+          RUN_END_CLOCK: ${{ inputs.end_clock }}
           RUN_TIMEZONE: ${{ inputs.timezone }}
         run: |
           if [ -z "$OBHRM_LARK_WEBHOOK_URL" ]; then
@@ -258,10 +274,12 @@ jobs:
               fi
             fi
           done
+          START_DATETIME="$RUN_START_DATE $RUN_START_CLOCK"
+          END_DATETIME="$RUN_END_DATE $RUN_END_CLOCK"
           python skills/obhrm-literature-monitor/scripts/push_lark_report_summary.py \
             --csv "outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_records.csv" \
-            --start "$RUN_START_TIME" \
-            --end "$RUN_END_TIME" \
+            --start "$START_DATETIME" \
+            --end "$END_DATETIME" \
             --timezone "$RUN_TIMEZONE" \
             --concepts "$CONCEPTS" \
             --public-report-url "${{ steps.generate.outputs.public_report_url }}" \

@@ -35,8 +35,8 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Push Lark summary for an existing report CSV.")
     parser.add_argument("--csv", type=Path, required=True, help="Existing obhrm_daily_records.csv path.")
-    parser.add_argument("--start", required=True, help="Tokyo-time start datetime, e.g. 2026-05-18T00:00.")
-    parser.add_argument("--end", required=True, help="Tokyo-time end datetime, e.g. 2026-05-25T00:00.")
+    parser.add_argument("--start", required=True, help="Local start datetime, e.g. 2026/05/18 00:00.")
+    parser.add_argument("--end", required=True, help="Local end datetime, e.g. 2026/05/25 00:00.")
     parser.add_argument("--timezone", default="Asia/Tokyo")
     parser.add_argument("--concepts", help="Optional semicolon-separated concept list.")
     parser.add_argument("--public-report-url", required=True)

@@ -55,7 +55,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timezone", default="Asia/Tokyo")
     parser.add_argument("--match-mode", default="any", choices=["any"])
     parser.add_argument("--output-label", help="Optional output folder label.")
-    parser.add_argument("--strategy", choices=["openalex-keyword", "crossref-journal"], default="openalex-keyword")
+    parser.add_argument(
+        "--strategy",
+        choices=["openalex-source", "openalex-keyword", "crossref-journal"],
+        default="openalex-source",
+    )
     parser.add_argument("--per-keyword", type=int, default=200)
     parser.add_argument("--max-pages", type=int, default=10)
     parser.add_argument("--public-site-url", default="https://obhrm-literature-monitor.netlify.app")
@@ -145,6 +149,7 @@ def main() -> int:
             f"- Output folder: `{report_slug}`",
             f"- Public report: {public_report_url}",
             f"- Public index: {public_index_url}",
+            "- Trace artifact: `obhrm_scan_trace.csv` shows source-by-source OpenAlex traversal.",
             f"- Lark: {lark_status}",
         ]
     )

@@ -42,6 +42,13 @@ class Journal:
 
 
 @dataclass
+class OpenAlexSource:
+    id: str
+    display_name: str
+    resolution_method: str
+
+
+@dataclass
 class Article:
     title: str = ""
     journal: str = ""
@@ -229,6 +236,10 @@ def http_json(url: str, params: dict[str, str] | None = None, timeout: int = 40)
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def request_url(url: str, params: dict[str, str]) -> str:
+    return f"{url}?{urllib.parse.urlencode(params)}"
 
 
 def date_parts_to_date(value: Any) -> str:
@@ -539,6 +550,59 @@ def is_whitelisted_openalex_work(
     return normalize_title(source_name) in whitelist_titles
 
 
+def openalex_short_id(value: str) -> str:
+    return str(value or "").rstrip("/").rsplit("/", 1)[-1]
+
+
+def resolve_openalex_source(journal: Journal, log: list[str]) -> OpenAlexSource | None:
+    mailto = os.environ.get("OBHRM_OPENALEX_MAILTO") or os.environ.get("OBHRM_CONTACT_EMAIL", "")
+    for issn in journal.issns:
+        params = {"filter": f"issn:{issn}", "per-page": "5"}
+        if mailto:
+            params["mailto"] = mailto
+        try:
+            data = http_json(f"{OPENALEX_API}/sources", params)
+        except Exception as exc:  # noqa: BLE001
+            log.append(f"WARN OpenAlex source lookup failed {journal.title} issn={issn}: {exc}")
+            continue
+        results = data.get("results", []) or []
+        for source in results:
+            source_issns = source.get("issn") or []
+            if issn in source_issns or issn == source.get("issn_l"):
+                return OpenAlexSource(
+                    id=openalex_short_id(source.get("id", "")),
+                    display_name=source.get("display_name", "") or journal.title,
+                    resolution_method=f"issn:{issn}",
+                )
+        if results:
+            source = results[0]
+            return OpenAlexSource(
+                id=openalex_short_id(source.get("id", "")),
+                display_name=source.get("display_name", "") or journal.title,
+                resolution_method=f"issn-first:{issn}",
+            )
+
+    params = {"search": journal.title, "per-page": "5"}
+    if mailto:
+        params["mailto"] = mailto
+    try:
+        data = http_json(f"{OPENALEX_API}/sources", params)
+    except Exception as exc:  # noqa: BLE001
+        log.append(f"WARN OpenAlex source title lookup failed {journal.title}: {exc}")
+        return None
+    target = normalize_title(journal.title)
+    for source in data.get("results", []) or []:
+        display_name = source.get("display_name", "") or ""
+        if normalize_title(display_name) == target:
+            return OpenAlexSource(
+                id=openalex_short_id(source.get("id", "")),
+                display_name=display_name,
+                resolution_method="title-exact",
+            )
+    log.append(f"WARN OpenAlex source unresolved: {journal.title}")
+    return None
+
+
 def keyword_matches(article: Article, concepts: list[str]) -> bool:
     fields = {
         "title": article.title,
@@ -684,6 +748,102 @@ def query_openalex_keyword(
     return results
 
 
+def query_openalex_source_keyword(
+    journal: Journal,
+    source: OpenAlexSource,
+    concept: str,
+    start: datetime,
+    end: datetime,
+    per_page: int,
+    max_pages: int,
+    source_index: int,
+    source_count: int,
+    log: list[str],
+    trace_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    start_date = start.date().isoformat()
+    end_date = end.date().isoformat()
+    filters = [
+        f"from_publication_date:{start_date}",
+        f"to_publication_date:{end_date}",
+        "type:article",
+        f"locations.source.id:{source.id}",
+        f"title_and_abstract.search:{concept}",
+    ]
+    params = {
+        "filter": ",".join(filters),
+        "per-page": str(per_page),
+        "sort": "publication_date:desc",
+        "cursor": "*",
+    }
+    mailto = os.environ.get("OBHRM_OPENALEX_MAILTO") or os.environ.get("OBHRM_CONTACT_EMAIL", "")
+    if mailto:
+        params["mailto"] = mailto
+
+    results: list[dict[str, Any]] = []
+    total_count = 0
+    pages_fetched = 0
+    status = "complete"
+    last_url = request_url(f"{OPENALEX_API}/works", params)
+    for page in range(1, max_pages + 1):
+        last_url = request_url(f"{OPENALEX_API}/works", params)
+        try:
+            data = http_json(f"{OPENALEX_API}/works", params)
+        except Exception as exc:  # noqa: BLE001
+            status = f"failed: {exc}"
+            log.append(
+                f"WARN OpenAlex source-first failed source={journal.title!r} "
+                f"concept={concept!r} page={page}: {exc}"
+            )
+            break
+        meta = data.get("meta") or {}
+        if page == 1:
+            total_count = int(meta.get("count") or 0)
+        page_results = data.get("results", []) or []
+        pages_fetched = page
+        results.extend(page_results)
+        log.append(
+            f"OpenAlex source-first {source_index}/{source_count} source={journal.title!r} "
+            f"source_id={source.id} concept={concept!r} page={page}: "
+            f"{len(page_results)} items total={total_count}"
+        )
+        next_cursor = meta.get("next_cursor")
+        if not page_results or not next_cursor:
+            break
+        params["cursor"] = next_cursor
+        time.sleep(0.2)
+
+    if total_count > len(results) and status == "complete":
+        status = f"incomplete: fetched {len(results)} of {total_count}; increase --max-pages"
+        log.append(
+            f"WARN OpenAlex source-first incomplete source={journal.title!r} "
+            f"concept={concept!r}: fetched {len(results)} of {total_count}"
+        )
+
+    trace_rows.append(
+        {
+            "source_index": source_index,
+            "source_count": source_count,
+            "journal": journal.title,
+            "issns": "; ".join(journal.issns),
+            "openalex_source_id": source.id,
+            "openalex_source_name": source.display_name,
+            "source_resolution": source.resolution_method,
+            "concept": concept,
+            "window_start": start.isoformat(),
+            "window_end": end.isoformat(),
+            "api_total_count": total_count,
+            "fetched_count": len(results),
+            "pages_fetched": pages_fetched,
+            "per_page": per_page,
+            "max_pages": max_pages,
+            "status": status,
+            "query_url": last_url,
+        }
+    )
+    return results
+
+
 def scan_articles_keyword_first(
     journals: list[Journal],
     concepts: list[str],
@@ -719,6 +879,72 @@ def scan_articles_keyword_first(
             articles.append(article)
         time.sleep(0.05)
     log.append(f"OpenAlex whitelist-filter skipped: {skipped}")
+    return sorted(dedupe_articles(articles), key=lambda item: (item.publication_date or "", item.journal, item.title))
+
+
+def scan_articles_source_first(
+    journals: list[Journal],
+    concepts: list[str],
+    start: datetime,
+    end: datetime,
+    per_keyword: int,
+    max_pages: int,
+    limit_journals: int | None,
+    log: list[str],
+    trace_rows: list[dict[str, Any]],
+) -> list[Article]:
+    selected_journals = journals[:limit_journals] if limit_journals else journals
+    raw_works: list[dict[str, Any]] = []
+    for index, journal in enumerate(selected_journals, 1):
+        log.append(f"SOURCE-FIRST JOURNAL {index}/{len(selected_journals)} {journal.title}")
+        source = resolve_openalex_source(journal, log)
+        if not source:
+            trace_rows.append(
+                {
+                    "source_index": index,
+                    "source_count": len(selected_journals),
+                    "journal": journal.title,
+                    "issns": "; ".join(journal.issns),
+                    "openalex_source_id": "",
+                    "openalex_source_name": "",
+                    "source_resolution": "unresolved",
+                    "concept": "",
+                    "window_start": start.isoformat(),
+                    "window_end": end.isoformat(),
+                    "api_total_count": 0,
+                    "fetched_count": 0,
+                    "pages_fetched": 0,
+                    "per_page": per_keyword,
+                    "max_pages": max_pages,
+                    "status": "unresolved-source",
+                    "query_url": "",
+                }
+            )
+            continue
+        for concept in concepts:
+            raw_works.extend(
+                query_openalex_source_keyword(
+                    journal=journal,
+                    source=source,
+                    concept=concept,
+                    start=start,
+                    end=end,
+                    per_page=per_keyword,
+                    max_pages=max_pages,
+                    source_index=index,
+                    source_count=len(selected_journals),
+                    log=log,
+                    trace_rows=trace_rows,
+                )
+            )
+
+    articles: list[Article] = []
+    for work in raw_works:
+        article = article_from_openalex(work)
+        crossref_enrich_by_doi(article)
+        if keyword_matches(article, concepts):
+            articles.append(article)
+        time.sleep(0.05)
     return sorted(dedupe_articles(articles), key=lambda item: (item.publication_date or "", item.journal, item.title))
 
 
@@ -781,6 +1007,33 @@ def write_csv_report(articles: list[Article], path: Path) -> None:
                     "matched_concepts": csv_value(article.matched_concepts),
                 }
             )
+
+
+def write_trace_report(trace_rows: list[dict[str, Any]], path: Path) -> None:
+    fieldnames = [
+        "source_index",
+        "source_count",
+        "journal",
+        "issns",
+        "openalex_source_id",
+        "openalex_source_name",
+        "source_resolution",
+        "concept",
+        "window_start",
+        "window_end",
+        "api_total_count",
+        "fetched_count",
+        "pages_fetched",
+        "per_page",
+        "max_pages",
+        "status",
+        "query_url",
+    ]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in trace_rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
 
 
 def article_markdown(article: Article, index: int) -> str:
@@ -938,8 +1191,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-label", help="Optional suffix for output/log folders.")
     parser.add_argument(
         "--strategy",
-        choices=["openalex-keyword", "crossref-journal"],
-        default="openalex-keyword",
+        choices=["openalex-source", "openalex-keyword", "crossref-journal"],
+        default="openalex-source",
     )
     parser.add_argument("--per-keyword", type=int, default=200)
     parser.add_argument("--max-pages", type=int, default=10)
@@ -970,7 +1223,9 @@ def main() -> int:
     output_dir, log_dir = output_dir_for(end, args.output_label)
     report_path = output_dir / "obhrm_daily_report.md"
     csv_path = output_dir / "obhrm_daily_records.csv"
+    trace_path = output_dir / "obhrm_scan_trace.csv"
     log_path = log_dir / "run.log"
+    trace_rows: list[dict[str, Any]] = []
     log: list[str] = [
         f"Start: {datetime.now().isoformat(timespec='seconds')}",
         f"Window: {start.isoformat()} to {end.isoformat()}",
@@ -989,6 +1244,18 @@ def main() -> int:
             limit_journals=args.limit_journals,
             log=log,
         )
+    elif args.strategy == "openalex-source":
+        articles = scan_articles_source_first(
+            journals=journals,
+            concepts=concepts,
+            start=start,
+            end=end,
+            per_keyword=args.per_keyword,
+            max_pages=args.max_pages,
+            limit_journals=args.limit_journals,
+            log=log,
+            trace_rows=trace_rows,
+        )
     else:
         selected_journals = journals[: args.limit_journals] if args.limit_journals else journals
         articles = scan_articles_keyword_first(
@@ -1001,6 +1268,7 @@ def main() -> int:
             log=log,
         )
     write_csv_report(articles, csv_path)
+    write_trace_report(trace_rows, trace_path)
     write_markdown_report(
         articles=articles,
         path=report_path,
@@ -1015,6 +1283,7 @@ def main() -> int:
     log.append(f"Matched articles: {len(articles)}")
     log.append(f"Report: {report_path}")
     log.append(f"CSV: {csv_path}")
+    log.append(f"Trace: {trace_path}")
 
     if args.push_lark:
         try:

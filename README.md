@@ -71,7 +71,7 @@ Run the previous full Tokyo-time week:
 python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --previous-week
 ```
 
-The default keyword-first scan checks up to 10 OpenAlex pages per concept to reduce missed whitelist matches caused by public metadata ranking changes.
+The default production scan uses the `openalex-source` strategy. It resolves each whitelist source to an OpenAlex source id, searches each source/concept/window combination, and writes `obhrm_scan_trace.csv` so the traversal can be audited.
 
 Run a specific Tokyo-time window:
 
@@ -116,6 +116,7 @@ They do need GitHub access to this repository with permission to run Actions.
 6. Start the workflow and wait for it to finish.
 
 The workflow runs on GitHub-hosted servers. It generates Markdown, CSV, and HTML artifacts, publishes the public HTML copy into `site/reports/<run-folder>/`, commits the updated `site/` directory, and lets Netlify redeploy the public report page.
+It also uploads `obhrm_scan_trace.csv`, which shows source-by-source traversal details: journal/platform name, OpenAlex source id, concept, API total count, fetched count, pages fetched, status, and query URL.
 
 If Lark secrets are configured, the workflow also sends the short Lark summary. Add these repository secrets under GitHub `Settings` -> `Secrets and variables` -> `Actions`:
 

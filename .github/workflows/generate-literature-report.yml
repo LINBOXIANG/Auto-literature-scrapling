@@ -30,9 +30,10 @@ on:
       strategy:
         description: "Discovery strategy"
         required: true
-        default: "openalex-keyword"
+        default: "openalex-source"
         type: choice
         options:
+          - openalex-source
           - openalex-keyword
           - crossref-journal
       per_keyword:
@@ -58,6 +59,9 @@ on:
 
 permissions:
   contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
   group: obhrm-literature-report
@@ -117,6 +121,7 @@ jobs:
             outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_report.md
             outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_report.html
             outputs/${{ steps.generate.outputs.report_dir }}/obhrm_daily_records.csv
+            outputs/${{ steps.generate.outputs.report_dir }}/obhrm_scan_trace.csv
             logs/${{ steps.generate.outputs.report_dir }}/run.log
 
       - name: Commit published site

@@ -52,8 +52,9 @@ Use active keywords from `config/monitor.yaml`, or pass a temporary keyword stri
 python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --keywords "work engagement; turnover; self-sacrifice leadership"
 ```
 
-The default scan strategy is `openalex-keyword`: search OpenAlex by keyword/date first, filter to the approved OBHRM whitelist, then enrich by DOI through Crossref. Use `--strategy crossref-journal` only as a slower fallback when keyword-first discovery appears incomplete.
-Keep `--max-pages` high enough for weekly scans; the default is 10 pages per concept because OpenAlex relevance ordering can move whitelist articles beyond the first few pages.
+The default scan strategy is `openalex-source`: resolve each whitelist source to its OpenAlex source id, then query each source/concept/window combination and write a source-by-source traversal trace. Use this for production and any research-sensitive search.
+Use `--strategy openalex-keyword` only as a fast exploratory shortcut: it searches OpenAlex globally by keyword/date first and then filters to the whitelist, so it can miss many whitelist articles in broad keywords or long windows. Use `--strategy crossref-journal` only as a fallback when OpenAlex source metadata appears incomplete.
+Keep `--max-pages` high enough for long or broad searches. The trace file flags source/concept rows as incomplete when OpenAlex reports more results than were fetched.
 
 For weekly production-style scans, use the previous-week window:
 
@@ -139,6 +140,8 @@ Use `.github/workflows/generate-literature-report.yml` when a collaborator needs
 - optional output label and scan strategy controls.
 
 The workflow runs `scripts/run_github_report.py`, which scans, renders standalone HTML, publishes the public copy under `site/reports/<run-folder>/`, uploads Markdown/HTML/CSV/log artifacts to the workflow run, and commits `site/` so Netlify can redeploy.
+
+The workflow also uploads `obhrm_scan_trace.csv`. Use this file to audit the traversal process: it records each source, source id, concept, API total count, fetched count, page count, status, and query URL.
 
 Repository secrets for Lark push:
 

@@ -79,7 +79,7 @@ Run a specific window with separate keyword concepts:
 python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --timezone Asia/Tokyo --start 2026-05-18T00:00 --end 2026-05-25T00:00 --keyword AI --keyword LLM --keyword "Large Language Model" --match-mode any
 ```
 
-Choose a narrower source list when broad keywords would produce too many articles:
+Choose one or more source lists when broad keywords would produce too many articles. Repeating `--journal-list` scans the union of those lists:
 
 ```text
 all-whitelist       all approved OBHRM/HCI/preprint whitelist sources
@@ -93,6 +93,10 @@ Example:
 
 ```powershell
 python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --timezone Asia/Tokyo --start 2000-01-01T00:00 --end 2026-06-01T00:00 --keyword Asia --keyword Asian --match-mode any
+```
+
+```powershell
+python skills/obhrm-literature-monitor/scripts/run_daily_scan.py --journal-list abs-4-star --journal-list ft50 --timezone Asia/Tokyo --start 2026-05-18T00:00 --end 2026-05-25T00:00 --keyword AI
 ```
 
 Render the Markdown report as standalone HTML:
@@ -131,7 +135,7 @@ Important permission rule: most users cannot click `Run workflow` inside another
    - `start_time`: inclusive start in the selected timezone, such as `2026-05-18T00:00`.
    - `end_time`: exclusive end in the selected timezone, such as `2026-05-25T00:00`. The workflow will fail clearly if the end is not later than the start.
    - `match_mode`: choose `any` for OR logic, or `all` for AND logic.
-   - `journal_list`: choose `all-whitelist`, `abs-4-and-4-star`, `abs-4-star`, `ft50`, or `utd24`.
+   - Journal list checkboxes: select one or more of `all-whitelist`, `abs-4-and-4-star`, `abs-4-star`, `ft50`, and `utd24`. The workflow scans the union of all selected lists. `abs-4-star` is selected by default as the most selective option.
    - `public_site_url`: leave blank unless you maintain a custom Netlify or GitHub Pages domain.
 6. Start the workflow and wait for it to finish.
 

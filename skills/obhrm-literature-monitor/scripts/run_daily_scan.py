@@ -250,9 +250,27 @@ def journal_list_options() -> str:
     return ", ".join(JOURNAL_LISTS)
 
 
+def normalize_journal_list_names(journal_lists: list[str] | str | None) -> list[str]:
+    if journal_lists is None:
+        names = ["all-whitelist"]
+    elif isinstance(journal_lists, str):
+        names = [item.strip() for item in journal_lists.split(",") if item.strip()]
+    else:
+        names = [str(item).strip() for item in journal_lists if str(item).strip()]
+    names = list(dict.fromkeys(names))
+    if not names:
+        raise ValueError(f"Select at least one journal list. Available: {journal_list_options()}")
+    unknown = [name for name in names if name not in JOURNAL_LISTS]
+    if unknown:
+        raise ValueError(f"Unknown journal list(s) {unknown!r}. Available: {journal_list_options()}")
+    return names
+
+
+def journal_list_labels(journal_lists: list[str]) -> str:
+    return "; ".join(f"{name} ({JOURNAL_LISTS[name]['label']})" for name in journal_lists)
+
+
 def journal_matches_list(source_lists: str, journal_list: str) -> bool:
-    if journal_list not in JOURNAL_LISTS:
-        raise ValueError(f"Unknown journal list {journal_list!r}. Available: {journal_list_options()}")
     tokens = JOURNAL_LISTS[journal_list]["tokens"]
     if not tokens:
         return True
@@ -260,20 +278,25 @@ def journal_matches_list(source_lists: str, journal_list: str) -> bool:
     return bool(source_tokens & tokens)
 
 
-def journal_is_excluded(title: str, journal_list: str) -> bool:
+def journal_matches_any_list(source_lists: str, journal_lists: list[str]) -> bool:
+    return any(journal_matches_list(source_lists, journal_list) for journal_list in journal_lists)
+
+
+def journal_is_excluded(title: str) -> bool:
     return normalize_title(title) in EXCLUDED_JOURNAL_TITLES
 
 
-def load_journals(path: Path, journal_list: str = "all-whitelist") -> list[Journal]:
+def load_journals(path: Path, journal_lists: list[str] | str | None = None) -> list[Journal]:
+    selected_lists = normalize_journal_list_names(journal_lists)
     journals: list[Journal] = []
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             if row.get("obhrm_candidate") != "True":
                 continue
-            if journal_is_excluded(row.get("journal_title", ""), journal_list):
+            if journal_is_excluded(row.get("journal_title", "")):
                 continue
-            if not journal_matches_list(row.get("source_lists", ""), journal_list):
+            if not journal_matches_any_list(row.get("source_lists", ""), selected_lists):
                 continue
             issns = []
             for field_name in ["issn", "eissn"]:
@@ -1286,9 +1309,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--public-index-url", help="Public URL for the hosted report index page.")
     parser.add_argument(
         "--journal-list",
+        action="append",
         choices=list(JOURNAL_LISTS),
-        default="all-whitelist",
-        help="Named source subset to scan.",
+        help="Named source subset to scan. Repeat to scan the union of multiple lists.",
     )
     return parser.parse_args()
 
@@ -1311,7 +1334,8 @@ def main() -> int:
         start, end = default_window(timezone)
     validate_window(start, end)
 
-    journals = load_journals(WHITELIST_CSV, args.journal_list)
+    journal_lists = normalize_journal_list_names(args.journal_list)
+    journals = load_journals(WHITELIST_CSV, journal_lists)
     output_dir, log_dir = output_dir_for(end, args.output_label)
     report_path = output_dir / "obhrm_daily_report.md"
     csv_path = output_dir / "obhrm_daily_records.csv"
@@ -1324,7 +1348,7 @@ def main() -> int:
         f"Timezone: {timezone}",
         f"Keywords: {concepts}",
         f"Match mode: {match_mode}",
-        f"Journal list: {args.journal_list} ({JOURNAL_LISTS[args.journal_list]['label']})",
+        f"Journal lists: {journal_list_labels(journal_lists)}",
         f"Journals: {len(journals)}",
         f"Strategy: {args.strategy}",
     ]

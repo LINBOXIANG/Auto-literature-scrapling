@@ -146,7 +146,7 @@ Use `.github/workflows/generate-literature-report.yml` when a collaborator needs
 - `start_time`: inclusive start in the selected timezone, such as `2026-05-18T00:00`.
 - `end_time`: exclusive end in the selected timezone, such as `2026-05-25T00:00`; the script rejects windows where end is not later than start.
 - `match_mode`: `any` for OR logic, or `all` for AND logic.
-- `journal_list`: one of `all-whitelist`, `abs-4-and-4-star`, `abs-4-star`, `ft50`, or `utd24`.
+- journal list checkboxes: one or more of `all-whitelist`, `abs-4-and-4-star`, `abs-4-star`, `ft50`, and `utd24`. The workflow scans the union of all selected lists. `abs-4-star` is selected by default as the most selective option.
 - optional output label and public site URL.
 
 The web workflow intentionally hides low-level OpenAlex controls from ordinary users. It uses the production `openalex-source` traversal with repository defaults.

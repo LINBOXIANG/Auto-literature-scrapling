@@ -53,17 +53,31 @@ on:
         options:
           - any
           - all
-      journal_list:
-        description: "Target source list"
+      include_all_whitelist:
+        description: "Journal list: all-whitelist (broadest; overrides narrower subset choices by union)"
         required: true
-        default: "all-whitelist"
-        type: choice
-        options:
-          - all-whitelist
-          - abs-4-and-4-star
-          - abs-4-star
-          - ft50
-          - utd24
+        default: false
+        type: boolean
+      include_abs_4_and_4_star:
+        description: "Journal list: abs-4-and-4-star"
+        required: true
+        default: false
+        type: boolean
+      include_abs_4_star:
+        description: "Journal list: abs-4-star"
+        required: true
+        default: true
+        type: boolean
+      include_ft50:
+        description: "Journal list: ft50"
+        required: true
+        default: false
+        type: boolean
+      include_utd24:
+        description: "Journal list: utd24"
+        required: true
+        default: false
+        type: boolean
       output_label:
         description: "Optional URL/output label. Leave blank to auto-generate."
         required: false
@@ -124,7 +138,11 @@ jobs:
           RUN_END_TIME: ${{ inputs.end_time }}
           RUN_TIMEZONE: ${{ inputs.timezone }}
           RUN_MATCH_MODE: ${{ inputs.match_mode }}
-          RUN_JOURNAL_LIST: ${{ inputs.journal_list }}
+          RUN_INCLUDE_ALL_WHITELIST: ${{ inputs.include_all_whitelist }}
+          RUN_INCLUDE_ABS_4_AND_4_STAR: ${{ inputs.include_abs_4_and_4_star }}
+          RUN_INCLUDE_ABS_4_STAR: ${{ inputs.include_abs_4_star }}
+          RUN_INCLUDE_FT50: ${{ inputs.include_ft50 }}
+          RUN_INCLUDE_UTD24: ${{ inputs.include_utd24 }}
           RUN_OUTPUT_LABEL: ${{ inputs.output_label }}
           RUN_PUBLIC_SITE_URL: ${{ inputs.public_site_url }}
         run: |
@@ -139,12 +157,34 @@ jobs:
             --end "$RUN_END_TIME"
             --timezone "$RUN_TIMEZONE"
             --match-mode "$RUN_MATCH_MODE"
-            --journal-list "$RUN_JOURNAL_LIST"
             --strategy "openalex-source"
             --per-keyword "200"
             --max-pages "10"
             --public-site-url "$PUBLIC_SITE_URL"
           )
+          SELECTED_JOURNAL_LISTS=()
+          if [ "$RUN_INCLUDE_ALL_WHITELIST" = "true" ]; then
+            SELECTED_JOURNAL_LISTS+=("all-whitelist")
+          fi
+          if [ "$RUN_INCLUDE_ABS_4_AND_4_STAR" = "true" ]; then
+            SELECTED_JOURNAL_LISTS+=("abs-4-and-4-star")
+          fi
+          if [ "$RUN_INCLUDE_ABS_4_STAR" = "true" ]; then
+            SELECTED_JOURNAL_LISTS+=("abs-4-star")
+          fi
+          if [ "$RUN_INCLUDE_FT50" = "true" ]; then
+            SELECTED_JOURNAL_LISTS+=("ft50")
+          fi
+          if [ "$RUN_INCLUDE_UTD24" = "true" ]; then
+            SELECTED_JOURNAL_LISTS+=("utd24")
+          fi
+          if [ "${#SELECTED_JOURNAL_LISTS[@]}" -eq 0 ]; then
+            echo "Please select at least one journal list." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          for journal_list in "${SELECTED_JOURNAL_LISTS[@]}"; do
+            ARGS+=(--journal-list "$journal_list")
+          done
           for kw in "$RUN_KEYWORD_1" "$RUN_KEYWORD_2" "$RUN_KEYWORD_3" "$RUN_KEYWORD_4" "$RUN_KEYWORD_5"; do
             if [ -n "$kw" ]; then
               ARGS+=(--keyword "$kw")

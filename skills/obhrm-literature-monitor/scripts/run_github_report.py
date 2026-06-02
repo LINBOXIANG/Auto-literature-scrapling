@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
-from run_daily_scan import output_dir_for, parse_local_datetime, safe_label
+from run_daily_scan import JOURNAL_LISTS, normalize_journal_list_names, output_dir_for, parse_local_datetime, safe_label
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -85,8 +85,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--push-lark", action="store_true")
     parser.add_argument(
         "--journal-list",
-        choices=["all-whitelist", "abs-4-and-4-star", "abs-4-star", "ft50", "utd24"],
-        default="all-whitelist",
+        action="append",
+        choices=list(JOURNAL_LISTS),
+        help="Named source subset to scan. Repeat to scan the union of multiple lists.",
     )
     return parser.parse_args()
 
@@ -95,6 +96,7 @@ def main() -> int:
     args = parse_args()
     concepts = normalized_keywords(args.keyword, args.keywords)
     keyword_text = "; ".join(concepts)
+    journal_lists = normalize_journal_list_names(args.journal_list)
 
     label = args.output_label or default_label(keyword_text, args.start, args.end)
     start = parse_local_datetime(args.start, args.timezone)
@@ -129,9 +131,9 @@ def main() -> int:
             str(args.per_keyword),
             "--max-pages",
             str(args.max_pages),
-            "--journal-list",
-            args.journal_list,
     ]
+    for journal_list in journal_lists:
+        scan_args.extend(["--journal-list", journal_list])
     for concept in concepts:
         scan_args.extend(["--keyword", concept])
     run_command(scan_args)
@@ -184,7 +186,7 @@ def main() -> int:
             "",
             f"- Keywords: {keyword_text}",
             f"- Match mode: {args.match_mode}",
-            f"- Journal list: {args.journal_list}",
+            f"- Journal lists: {'; '.join(journal_lists)}",
             f"- Timezone: {args.timezone}",
             f"- Window: {start.isoformat()} to {end.isoformat()}",
             f"- Output folder: `{report_slug}`",
